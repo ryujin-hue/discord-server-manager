@@ -4,6 +4,22 @@ All notable changes of this project are listed here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [semantic versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.1] - 2026-11-03
+
+- Let a manual run publish a release too
+- Publish a release with every build and raise the version
+- Take the client id and the backend address from the repository variables
+- Build the image of the backend in the workflow
+- Add the deployment files of the backend
+- Document the Cloudflare Pages project in the README
+- Give Gradle more metaspace in the workflow
+- Add the static site for the Cloudflare Pages project
+- Use the short version for the name of the package in the workflow
+- Add Discord Server Manager: Flutter app and Fastify backend
+- Initial commit
+
+[1.0.1]: https://github.com/ryujin-hue/discord-server-manager/releases/tag/v1.0.1
+
 ## [1.0.0] - 2026-02-14
 
 ### Added

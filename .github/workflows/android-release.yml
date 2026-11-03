@@ -58,14 +58,20 @@ jobs:
         run: flutter test --reporter expanded
 
       - name: Write the local configuration
+        env:
+          DISCORD_CLIENT_ID: ${{ vars.DISCORD_CLIENT_ID }}
+          BACKEND_URL: ${{ vars.BACKEND_URL }}
         run: |
-          cat > env.json <<'JSON'
+          client_id="${DISCORD_CLIENT_ID:-000000000000000000}"
+          backend_url="${BACKEND_URL:-https://example.invalid}"
+          cat > env.json <<JSON
           {
-            "DISCORD_CLIENT_ID": "000000000000000000",
-            "BACKEND_URL": "https://example.invalid",
+            "DISCORD_CLIENT_ID": "${client_id}",
+            "BACKEND_URL": "${backend_url}",
             "GITHUB_REPO": "ryujin-hue/discord-server-manager"
           }
           JSON
+          cat env.json
 
       - name: Restore the signing key
         id: signing

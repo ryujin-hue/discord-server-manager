@@ -11,6 +11,11 @@ on:
 permissions:
   contents: write
 
+# Only one run at a time, otherwise two runs would raise the version twice.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
 env:
   FLUTTER_VERSION: 3.47.9
   JAVA_VERSION: '17'
@@ -24,6 +29,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          # The full history holds the tags, they decide the next version.
+          fetch-depth: 0
 
       - name: Set up Java
         uses: actions/setup-java@v4
@@ -41,9 +49,21 @@ jobs:
       - name: Read the app version
         id: version
         run: |
-          version="$(grep '^version:' pubspec.yaml | head -1 | cut -d' ' -f2)"
+          if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
+            version="${GITHUB_REF_NAME#v}"
+            tag="${GITHUB_REF_NAME}"
+          else
+            read -r version build tag < <(node tool/release.mjs next)
+          fi
+          build="$(git rev-list --count HEAD)"
           echo "version=${version}" >> "$GITHUB_OUTPUT"
-          echo "short=${version%%+*}" >> "$GITHUB_OUTPUT"
+          echo "build=${build}" >> "$GITHUB_OUTPUT"
+          echo "tag=${tag}" >> "$GITHUB_OUTPUT"
+          echo "version=${version}" >&2
+
+      - name: Write the version into the repository
+        if: github.event_name == 'push' && !startsWith(github.ref, 'refs/tags/')
+        run: node tool/release.mjs apply "${{ steps.version.outputs.version }}" "${{ steps.version.outputs.build }}"
 
       - name: Install the dependencies
         run: flutter pub get
@@ -107,42 +127,58 @@ jobs:
       - name: Build the release package
         id: build
         run: |
-          if [ "${{ steps.signing.outputs.signed }}" = "true" ]; then
-            flutter build apk --release --dart-define-from-file=env.json
-          else
-            flutter build apk --release --dart-define-from-file=env.json \
-              --build-name "${{ env.APK_NAME }}-debug-signed"
-          fi
+          flutter build apk --release \
+            --dart-define-from-file=env.json \
+            --build-name "${{ steps.version.outputs.version }}" \
+            --build-number "${{ steps.version.outputs.build }}"
 
       - name: Collect the package
         run: |
           mkdir -p artifacts
           cp build/app/outputs/flutter-apk/app-release.apk \
-            "artifacts/${{ env.APK_NAME }}-${{ steps.version.outputs.short }}.apk"
+            "artifacts/${{ env.APK_NAME }}-${{ steps.version.outputs.version }}.apk"
           ls -l artifacts
 
       - name: Upload the package as a workflow artifact
         uses: actions/upload-artifact@v4
         with:
           name: ${{ env.APK_NAME }}-Android
-          path: artifacts/${{ env.APK_NAME }}-${{ steps.version.outputs.short }}.apk
+          path: artifacts/${{ env.APK_NAME }}-${{ steps.version.outputs.version }}.apk
           if-no-files-found: error
 
       - name: Publish the release
-        if: startsWith(github.ref, 'refs/tags/v')
+        if: github.event_name == 'push'
         env:
-          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          GH_TOKEN: ${{ github.token }}
+          SIGNED: ${{ steps.signing.outputs.signed }}
         run: |
-          if [ -z "${ANDROID_KEYSTORE_BASE64}" ]; then
-            echo "The signing secrets are missing, no release is published."
+          tag="${{ steps.version.outputs.tag }}"
+          version="${{ steps.version.outputs.version }}"
+          package="artifacts/${{ env.APK_NAME }}-${version}.apk"
+          if [ "${SIGNED}" = "true" ]; then
+            notes="The package is signed with the release key."
+          else
+            notes="The package is signed with the debug key, because no signing secret is set in the repository."
+          fi
+          gh release create "${tag}" "${package}" \
+            --target "${{ github.sha }}" \
+            --title "Discord Server Manager ${version}" \
+            --notes "${notes}" \
+            --generate-notes || \
+          gh release upload "${tag}" "${package}" --clobber
+
+      - name: Update the version in the repository
+        if: github.event_name == 'push' && !startsWith(github.ref, 'refs/tags/')
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add pubspec.yaml CHANGELOG.md
+          if git diff --cached --quiet; then
+            echo "The version is already up to date."
             exit 0
           fi
-          version="${GITHUB_REF_NAME#v}"
-          body="Discord Server Manager ${version}. The package is signed with the release key."
-          gh release create "${GITHUB_REF_NAME}" \
-            "artifacts/${{ env.APK_NAME }}-${version}.apk" \
-            --title "Discord Server Manager ${version}" \
-            --notes "${body}"
+          git commit -m "chore: release v${{ steps.version.outputs.version }} [skip ci]"
+          git push origin HEAD:main
 
   backend:
     name: Backend

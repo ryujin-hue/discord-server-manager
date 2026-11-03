@@ -1,0 +1,18 @@
+# The backend with its database in a volume. The secrets come from a file
+# next to this one, see .env.example.
+services:
+  backend:
+    build: .
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      PORT: '8080'
+      DB_PATH: /app/data/app.sqlite
+    ports:
+      - '127.0.0.1:8080:8080'
+    volumes:
+      - backend-data:/app/data
+
+volumes:
+  backend-data:

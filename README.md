@@ -193,7 +193,9 @@ npm install
 npm run dev
 ```
 
-The service listens on `http://localhost:8080`. Check that it answers with:
+The scripts read the file `.env` when it exists, so the values of the table
+above are used without exporting them. The service listens on
+`http://localhost:8080`. Check that it answers with:
 
 ```bash
 curl http://localhost:8080/health
@@ -204,14 +206,68 @@ curl http://localhost:8080/health
 The backend must be reachable over public HTTPS, the OAuth2 redirect URI of the
 developer portal only accepts HTTPS addresses.
 
+The service needs a Node.js runtime, a file system for the SQLite database and
+a process that stays alive. Three ways to do that are prepared in the
+repository.
+
+#### A. Docker (the simplest way)
+
 ```bash
 cd backend
-npm ci
-npm run build
-NODE_ENV=production node dist/index.js
+cp .env.example .env      # fill in the values
+docker compose up -d --build
+docker compose logs -f backend
 ```
 
-- Put the service behind a reverse proxy that terminates TLS and forwards to `PORT`.
+The image is built from `backend/Dockerfile`, the database lives in the volume
+`backend-data` and only the port `8080` of the host is opened.
+
+#### B. A server with systemd and Caddy
+
+```bash
+# on the server
+sudo useradd --system --home /opt/discord-server-manager discord-server-manager
+sudo mkdir -p /opt/discord-server-manager/data
+sudo rsync -a --exclude node_modules --exclude dist ../backend/ /opt/discord-server-manager/
+cd /opt/discord-server-manager && sudo npm ci && sudo npm run build
+sudo cp deploy/discord-server-manager.service /etc/systemd/system/
+sudo cp deploy/Caddyfile /etc/caddy/Caddyfile
+sudo systemctl daemon-reload && sudo systemctl enable --now discord-server-manager
+```
+
+The secrets belong into `/etc/discord-server-manager.env`, the unit reads them
+from there:
+
+```ini
+DISCORD_CLIENT_ID=000000000000000000
+DISCORD_BOT_TOKEN=replace-with-your-bot-token
+PUBLIC_BASE_URL=https://api.example.com
+GATEWAY_ENABLED=true
+PORT=8080
+DB_PATH=/opt/discord-server-manager/data/app.sqlite
+```
+
+The address in the `Caddyfile` has to be the same as `PUBLIC_BASE_URL` and as
+the redirect URI of the Discord application. Caddy fetches the certificate of
+the address on its own.
+
+#### C. A Cloudflare tunnel
+
+A tunnel publishes the backend over HTTPS without a public address on the
+server, which fits a machine that is already in Cloudflare.
+
+```bash
+cloudflared tunnel create discord-server-manager
+cloudflared tunnel route dns discord-server-manager api.example.com
+sudo cp deploy/cloudflared/config.yml /etc/cloudflared/config.yml
+# fill in the id of the tunnel and the path of the credentials file
+sudo systemctl restart cloudflared
+```
+
+The service itself only listens on the server, the tunnel terminates the TLS.
+
+#### Notes for every way
+
 - Keep the database file on a volume that is backed up.
 - One process runs the REST API, the scheduler and the gateway over one SQLite
   database. Scaling it horizontally is not supported, because the scheduler and the
@@ -264,6 +320,11 @@ cp env.example.json env.json
 | `GITHUB_REPO` | The repository that is shown in the settings, for example `owner/name`. |
 
 The file is passed to the build with `--dart-define-from-file=env.json`.
+
+`BACKEND_URL` has to be the same address as `PUBLIC_BASE_URL` of the backend,
+without a trailing slash. The app builds the redirect URI of the OAuth2 flow
+out of it (`$BACKEND_URL/auth/mobile-callback`) and Discord only accepts a
+redirect URI that was registered in the developer portal.
 
 ### 3.2 Run it
 

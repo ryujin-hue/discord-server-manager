@@ -1,0 +1,30 @@
+# Caddy terminates the TLS for the backend.
+#
+# Install with:
+#   sudo cp deploy/Caddyfile /etc/caddy/Caddyfile
+#   sudo systemctl reload caddy
+#
+# The address has to be the same as PUBLIC_BASE_URL of the backend and the
+# redirect URI of the Discord application.
+
+api.example.com {
+	encode zstd gzip
+
+	# The rate limit of the backend protects it from a flood of requests.
+	rate_limit {
+		zone api {
+			key    { remote_host }
+			events { two_mins }
+			requests { 120 }
+		}
+	}
+
+	reverse_proxy 127.0.0.1:8080 {
+		header_up X-Forwarded-Proto { scheme }
+	}
+
+	log {
+		output file /var/log/caddy/api.log
+		format json
+	}
+}

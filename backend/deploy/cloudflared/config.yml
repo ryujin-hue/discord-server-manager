@@ -1,0 +1,20 @@
+# A named tunnel of Cloudflare publishes the backend over HTTPS without a
+# public address on the server.
+#
+# 1. cloudflared tunnel create discord-server-manager
+# 2. copy the id of the tunnel and the path of the credentials file here
+# 3. cloudflared tunnel route dns discord-server-manager api.example.com
+# 4. sudo systemctl restart cloudflared
+#
+# The hostname has to be the same as PUBLIC_BASE_URL of the backend and the
+# redirect URI of the Discord application.
+
+tunnel: 00000000-0000-0000-0000-000000000000
+credentials-file: /etc/cloudflared/00000000-0000-0000-0000-000000000000.json
+
+ingress:
+  - hostname: api.example.com
+    service: http://127.0.0.1:8080
+    originRequest:
+      noTLSVerify: false
+  - service: http_status:404

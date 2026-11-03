@@ -3,7 +3,7 @@ description: >-
   Discord Server Manager: administer Discord servers and send media to
   Discord channels directly from an Android device.
 publish_to: "none"
-version: 1.0.1+11
+version: 1.0.2+13
 environment:
   sdk: ">=3.13.0 <4.0.0"
   flutter: "3.47.9"

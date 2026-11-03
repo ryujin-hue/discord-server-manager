@@ -4,6 +4,13 @@ All notable changes of this project are listed here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [semantic versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.2] - 2026-11-03
+
+- Describe the automatic versioning and the release in the README
+- chore: release v1.0.1 [skip ci]
+
+[1.0.2]: https://github.com/ryujin-hue/discord-server-manager/releases/tag/v1.0.2
+
 ## [1.0.1] - 2026-11-03
 
 - Let a manual run publish a release too
@@ -18,7 +25,6 @@ All notable changes of this project are listed here. The format follows
 - Add Discord Server Manager: Flutter app and Fastify backend
 - Initial commit
 
-[1.0.1]: https://github.com/ryujin-hue/discord-server-manager/releases/tag/v1.0.1
 
 ## [1.0.0] - 2026-02-14
 
@@ -46,4 +52,5 @@ All notable changes of this project are listed here. The format follows
   backend, runs the tests and publishes a signed package for the tags `v*`.
 - The tests of the app and of the backend.
 
+[1.0.1]: https://github.com/ryujin-hue/discord-server-manager/releases/tag/v1.0.1
 [1.0.0]: https://github.com/ryujin-hue/discord-server-manager/releases/tag/v1.0.0

@@ -62,7 +62,7 @@ jobs:
           echo "version=${version}" >&2
 
       - name: Write the version into the repository
-        if: github.event_name == 'push' && !startsWith(github.ref, 'refs/tags/')
+        if: github.event_name != 'pull_request' && !startsWith(github.ref, 'refs/tags/')
         run: node tool/release.mjs apply "${{ steps.version.outputs.version }}" "${{ steps.version.outputs.build }}"
 
       - name: Install the dependencies
@@ -147,7 +147,7 @@ jobs:
           if-no-files-found: error
 
       - name: Publish the release
-        if: github.event_name == 'push'
+        if: github.event_name != 'pull_request'
         env:
           GH_TOKEN: ${{ github.token }}
           SIGNED: ${{ steps.signing.outputs.signed }}
@@ -168,7 +168,7 @@ jobs:
           gh release upload "${tag}" "${package}" --clobber
 
       - name: Update the version in the repository
-        if: github.event_name == 'push' && !startsWith(github.ref, 'refs/tags/')
+        if: github.event_name != 'pull_request' && !startsWith(github.ref, 'refs/tags/')
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"

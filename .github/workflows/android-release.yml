@@ -90,6 +90,14 @@ jobs:
           } > android/key.properties
           echo "signed=true" >> "$GITHUB_OUTPUT"
 
+      - name: Set the memory for Gradle
+        run: |
+          # The settings in the repository are tuned for a small machine. The
+          # runner has enough memory for the dexer, which needs a lot of
+          # metaspace.
+          sed -i 's/^org.gradle.jvmargs=.*/org.gradle.jvmargs=-Xmx4096m -XX:MaxMetaspaceSize=1024m -XX:ReservedCodeCacheSize=256m/' android/gradle.properties
+          grep '^org.gradle.jvmargs' android/gradle.properties
+
       - name: Build the release package
         id: build
         run: |

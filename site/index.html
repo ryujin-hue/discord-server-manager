@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Discord Server Manager</title>
+<meta name="description" content="A Flutter app for Android that manages Discord servers and sends media to Discord channels.">
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    background: #1a1b1e;
+    color: #dbdee1;
+    line-height: 1.6;
+  }
+  main { max-width: 880px; margin: 0 auto; padding: 48px 24px 72px; }
+  h1 { font-size: 2.1rem; margin: 0 0 8px; color: #f2f3f5; }
+  h2 { font-size: 1.15rem; margin: 32px 0 12px; color: #f2f3f5; }
+  p.lead { color: #b5bac1; margin-top: 0; }
+  .tag {
+    display: inline-block; padding: 2px 10px; border-radius: 999px;
+    background: #2b2d31; color: #949ba4; font-size: .78rem; letter-spacing: .04em;
+    text-transform: uppercase; margin-bottom: 18px;
+  }
+  .grid { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); }
+  .card {
+    background: #232428; border: 1px solid #2f3136; border-radius: 10px; padding: 16px 18px;
+  }
+  .card h3 { margin: 0 0 6px; font-size: .98rem; color: #f2f3f5; }
+  .card p { margin: 0; font-size: .9rem; color: #b5bac1; }
+  a.button {
+    display: inline-block; margin-top: 26px; padding: 12px 22px; border-radius: 8px;
+    background: #5865f2; color: #fff; text-decoration: none; font-weight: 600;
+  }
+  a.button:hover { background: #4752c4; }
+  code {
+    background: #2b2d31; padding: 2px 6px; border-radius: 5px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .86em;
+  }
+  ul { padding-left: 20px; }
+  li { margin: 4px 0; }
+  footer { margin-top: 48px; padding-top: 18px; border-top: 1px solid #2f3136; color: #80848b; font-size: .86rem; }
+</style>
+</head>
+<body>
+<main>
+  <span class="tag">Android app &middot; open source</span>
+  <h1>Discord Server Manager</h1>
+  <p class="lead">
+    A Flutter app for Android that manages Discord servers and sends media to Discord
+    channels. The backend is a small Fastify service with a REST API, a scheduler and
+    the Discord gateway.
+  </p>
+
+  <a class="button" href="https://github.com/ryujin-hue/discord-server-manager/releases">Download the APK</a>
+
+  <h2>Server manager</h2>
+  <div class="grid">
+    <div class="card">
+      <h3>Moderation</h3>
+      <p>Kick, ban, timeout, message purge, slow mode and the moderation log of a server.</p>
+    </div>
+    <div class="card">
+      <h3>Roles and access</h3>
+      <p>Create roles, grant them and inspect the real permission bits of a member in a channel.</p>
+    </div>
+    <div class="card">
+      <h3>Channels</h3>
+      <p>Create, rename, move and delete channels and categories.</p>
+    </div>
+    <div class="card">
+      <h3>AutoMod and verification</h3>
+      <p>The keyword, spam and link filter of a channel and the verification level of a server.</p>
+    </div>
+    <div class="card">
+      <h3>Engagement</h3>
+      <p>Welcome messages, announcements, reaction roles and the invite tracker.</p>
+    </div>
+    <div class="card">
+      <h3>Media sender</h3>
+      <p>A queue with pause, resume and cancel, a background upload service and a history of every upload.</p>
+    </div>
+  </div>
+
+  <h2>Setup</h2>
+  <ul>
+    <li>Create an application in the Discord developer portal and add a public client.</li>
+    <li>Register the redirect URI <code>https://YOUR-BACKEND-HOST/auth/mobile-callback</code>.</li>
+    <li>Select the scopes <code>identify</code> and <code>guilds</code>.</li>
+    <li>Copy <code>env.example.json</code> to <code>env.json</code> and build the app with
+        <code>flutter build apk --release --dart-define-from-file=env.json</code>.</li>
+  </ul>
+  <p>
+    The full instructions are in the
+    <a href="https://github.com/ryujin-hue/discord-server-manager#readme">README</a> of the
+    repository.
+  </p>
+
+  <footer>
+    This project is not affiliated with, endorsed by or sponsored by Discord Inc.
+    &ldquo;Discord&rdquo; is a trademark of Discord Inc.
+  </footer>
+</main>
+</body>
+</html>

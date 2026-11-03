@@ -169,3 +169,6 @@ jobs:
 
       - name: Build
         run: npm run build
+
+      - name: Build the image
+        run: docker build --tag discord-server-manager-backend:test .

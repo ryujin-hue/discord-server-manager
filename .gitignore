@@ -1,0 +1,33 @@
+# Dart / Flutter
+.dart_tool/
+.packages
+build/
+.flutter-plugins
+.flutter-plugins-dependencies
+.pub-cache/
+.pub/
+coverage/
+*.iml
+.idea/
+.vscode/
+
+# Local configuration and secrets
+env.json
+android/key.properties
+android/app/*.jks
+android/app/*.keystore
+*.keystore
+*.jks
+
+# Node / backend
+node_modules/
+backend/dist/
+backend/.env
+backend/*.sqlite
+backend/*.sqlite-journal
+backend/*.sqlite-wal
+backend/*.sqlite-shm
+
+# OS noise
+.DS_Store
+Thumbs.db

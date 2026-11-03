@@ -43,6 +43,7 @@ jobs:
         run: |
           version="$(grep '^version:' pubspec.yaml | head -1 | cut -d' ' -f2)"
           echo "version=${version}" >> "$GITHUB_OUTPUT"
+          echo "short=${version%%+*}" >> "$GITHUB_OUTPUT"
 
       - name: Install the dependencies
         run: flutter pub get
@@ -103,14 +104,14 @@ jobs:
         run: |
           mkdir -p artifacts
           cp build/app/outputs/flutter-apk/app-release.apk \
-            "artifacts/${{ env.APK_NAME }}-${{ steps.version.outputs.version }}.apk"
+            "artifacts/${{ env.APK_NAME }}-${{ steps.version.outputs.short }}.apk"
           ls -l artifacts
 
       - name: Upload the package as a workflow artifact
         uses: actions/upload-artifact@v4
         with:
           name: ${{ env.APK_NAME }}-Android
-          path: artifacts/${{ env.APK_NAME }}-${{ steps.version.outputs.version }}.apk
+          path: artifacts/${{ env.APK_NAME }}-${{ steps.version.outputs.short }}.apk
           if-no-files-found: error
 
       - name: Publish the release

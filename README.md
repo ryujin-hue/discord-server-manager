@@ -24,6 +24,7 @@ a webhook or to a channel of the bot.
 - [Part two: backend](#part-two-backend)
 - [Part three: the app](#part-three-the-app)
 - [GitHub secrets for the release workflow](#github-secrets-for-the-release-workflow)
+- [The Cloudflare Pages project](#the-cloudflare-pages-project)
 - [Tests](#tests)
 - [Limits](#limits)
 - [Token and secret policy](#token-and-secret-policy)
@@ -313,6 +314,30 @@ Add these secrets in **Settings -> Secrets and variables -> Actions**:
 Without these secrets the workflow still builds the app, but the package is signed
 with the debug key and no release is published. The workflow never writes a secret
 into the repository.
+
+## The Cloudflare Pages project
+
+The pages project of this repository is `discord-server-manager`. It reads the
+repository from GitHub, so every push to `main` starts a build.
+
+| Setting | Value |
+| --- | --- |
+| Address | `https://discord-server-manager.pages.dev` |
+| Source | GitHub, `ryujin-hue/discord-server-manager` |
+| Production branch | `main` |
+| Build command | `bash .github/cloudflare/build-site.sh` |
+| Output directory | `dist` |
+
+The build script copies the folder `site` into the output directory. The folder
+holds the landing page of the project. The application itself is built for
+Android, the web build of the app is not part of this repository yet.
+
+The connection to GitHub is made with the Cloudflare GitHub App. When the
+repository is missing in the list of the dashboard, the app does not have the
+access to it yet. Open **Settings -> Applications -> Installed GitHub Apps ->
+Cloudflare Pages and Workers -> Configure**, choose the repository (or
+**All repositories**) and save. The pages project has to be connected again
+after that.
 
 ## Tests
 

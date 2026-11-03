@@ -50,8 +50,8 @@
   <h1>Discord Server Manager</h1>
   <p class="lead">
     A Flutter app for Android that manages Discord servers and sends media to Discord
-    channels. The backend is a small Fastify service with a REST API, a scheduler and
-    the Discord gateway.
+    channels. The backend runs entirely on Cloudflare Pages Functions with D1 and
+    Cron Triggers — no server to maintain.
   </p>
 
   <a class="button" href="https://github.com/ryujin-hue/discord-server-manager/releases">Download the APK</a>
@@ -87,7 +87,7 @@
   <h2>Setup</h2>
   <ul>
     <li>Create an application in the Discord developer portal and add a public client.</li>
-    <li>Register the redirect URI <code>https://YOUR-BACKEND-HOST/auth/mobile-callback</code>.</li>
+    <li>Register the redirect URI <code>https://YOUR-PAGES-DOMAIN/auth/mobile-callback</code>.</li>
     <li>Select the scopes <code>identify</code> and <code>guilds</code>.</li>
     <li>Copy <code>env.example.json</code> to <code>env.json</code> and build the app with
         <code>flutter build apk --release --dart-define-from-file=env.json</code>.</li>

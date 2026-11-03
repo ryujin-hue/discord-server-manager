@@ -1,0 +1,52 @@
+# Cloudflare Pages project configuration for XAX Server Manager.
+#
+# The website, the OAuth2 callback and the REST API are all served from this
+# single Pages project. `functions/` is compiled by Wrangler on deploy and is
+# mounted in front of the static assets in `dist/`.
+#
+# Secrets (NEVER put them in this file or in git):
+#   wrangler pages secret put DISCORD_BOT_TOKEN   --project-name=discord-server-manager
+#   wrangler pages secret put DISCORD_PUBLIC_KEY  --project-name=discord-server-manager
+#   wrangler pages secret put CRON_SIGNING_KEY    --project-name=discord-server-manager
+#
+# `database_id` is filled by the deploy workflow from the D1_DATABASE_ID secret.
+# Local development uses Wrangler's local D1 and does not need a real id.
+
+name = "discord-server-manager"
+pages_build_output_dir = "./dist"
+compatibility_date = "2024-11-01"
+compatibility_flags = ["nodejs_compat"]
+
+[[d1_databases]]
+binding = "DB"
+database_name = "discord-server-manager"
+database_id = "__D1_DATABASE_ID__"
+
+[vars]
+# Public by design: the Discord application id is a public identifier.
+DISCORD_CLIENT_ID = "000000000000000000"
+# Comma separated list of origins allowed to call the API from a browser.
+# Empty = same-origin only (the Android app sends no Origin header).
+ALLOWED_ORIGINS = ""
+# Optional override. When empty, PUBLIC_BASE_URL is derived from the request URL,
+# so no domain is hardcoded before the real Pages domain is known.
+PUBLIC_BASE_URL = ""
+# Bot user id, used by the "bot present" check. May stay empty: it is then
+# resolved lazily from GET /users/@me with the bot token.
+BOT_USER_ID = ""
+# Whether the (unavailable on Workers) Gateway-backed features are advertised.
+GATEWAY_ADVERTISE_UNAVAILABLE = "true"
+
+# Preview deployments use a separate D1 database so preview traffic can never
+# write into production data. The workflow injects D1_PREVIEW_DATABASE_ID.
+[env.preview.vars]
+DISCORD_CLIENT_ID = "000000000000000000"
+ALLOWED_ORIGINS = ""
+PUBLIC_BASE_URL = ""
+BOT_USER_ID = ""
+GATEWAY_ADVERTISE_UNAVAILABLE = "true"
+
+[[env.preview.d1_databases]]
+binding = "DB"
+database_name = "discord-server-manager-preview"
+database_id = "__D1_PREVIEW_DATABASE_ID__"

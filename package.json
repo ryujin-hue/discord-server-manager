@@ -1,0 +1,28 @@
+{
+  "name": "discord-server-manager-cloudflare",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Cloudflare Pages Functions, D1 and Cron Triggers deployment of the Discord Server Manager backend.",
+  "scripts": {
+    "build:site": "bash .github/cloudflare/build-site.sh",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "functions:build": "wrangler pages functions build --outdir=dist/_functions",
+    "deploy:pages": "npm run build:site && wrangler pages deploy dist --project-name=discord-server-manager --branch=main",
+    "deploy:cron": "wrangler deploy --config workers/scheduler/wrangler.toml",
+    "d1:migrate:local": "wrangler d1 migrations apply discord-server-manager --local --config wrangler.toml",
+    "d1:migrate:remote": "wrangler d1 migrations apply discord-server-manager --remote --config wrangler.toml",
+    "lint": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "zod": "4.6.7"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "4.20250109.0",
+    "typescript": "5.9.3",
+    "vitest": "5.1.0",
+    "wrangler": "3.99.0"
+  }
+}

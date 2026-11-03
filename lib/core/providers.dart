@@ -59,9 +59,16 @@ final authRepositoryProvider = Provider<AuthRepository>((ref) {
 
 /// The Dio client that talks to the backend and to Discord with the user
 /// token attached.
+///
+/// `baseUrl` is set to the backend URL so that `BackendApi` can use relative
+/// paths (`/guilds/:id/overview`). `DiscordApi` uses its own absolute URLs
+/// (`https://discord.com/api/v10/...`), which Dio resolves correctly even when
+/// a baseUrl is configured, because absolute request paths override baseUrl.
 final dioProvider = Provider<Dio>((ref) {
+  final config = ref.watch(appConfigProvider);
   final dio = Dio(
     BaseOptions(
+      baseUrl: config.backendUrl,
       connectTimeout: const Duration(seconds: 20),
       receiveTimeout: const Duration(seconds: 30),
       sendTimeout: const Duration(seconds: 30),

@@ -20,7 +20,7 @@ android/app/*.keystore
 *.keystore
 *.jks
 
-# Node / backend
+# Node / backend / Cloudflare
 node_modules/
 backend/dist/
 backend/.env
@@ -28,6 +28,8 @@ backend/*.sqlite
 backend/*.sqlite-journal
 backend/*.sqlite-wal
 backend/*.sqlite-shm
+.wrangler/
+.dev.vars
 
 # OS noise
 .DS_Store

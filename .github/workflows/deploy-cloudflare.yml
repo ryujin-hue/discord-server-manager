@@ -1,0 +1,84 @@
+# Cloudflare Pages + D1 deployment for XAX Server Manager.
+#
+# Builds the static site, applies D1 migrations, and deploys the Pages project
+# (which includes the Functions API) plus the Cron Worker to production on
+# every push to `main`.
+#
+# Required GitHub secrets (set in Settings → Secrets and variables → Actions):
+#   CLOUDFLARE_API_TOKEN        Cloudflare API token with Pages + Workers + D1 permissions.
+#   CLOUDFLARE_ACCOUNT_ID       Cloudflare account id.
+#   D1_DATABASE_ID              Production D1 database id (created once via `wrangler d1 create`).
+#   D1_PREVIEW_DATABASE_ID      Preview D1 database id.
+#   DISCORD_CLIENT_ID           Discord application public client id.
+#
+# Cloudflare secrets (set once via `wrangler pages secret put`, never in GitHub):
+#   DISCORD_BOT_TOKEN           Bot token for REST API calls.
+#   DISCORD_PUBLIC_KEY          Discord application public key (for /interactions verification).
+#
+# After the first successful deploy, set the OAuth2 redirect URI in the Discord
+# Developer Portal to: https://<pages-domain>/auth/mobile-callback
+
+name: Deploy Cloudflare
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  deployments: write
+
+concurrency:
+  group: deploy-cloudflare
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Build static site
+        run: npm run build:site
+
+      - name: Replace D1 database placeholders
+        run: |
+          sed -i "s/__D1_DATABASE_ID__/${{ secrets.D1_DATABASE_ID }}/g" wrangler.toml
+          sed -i "s/__D1_PREVIEW_DATABASE_ID__/${{ secrets.D1_PREVIEW_DATABASE_ID }}/g" wrangler.toml
+          sed -i "s/__D1_DATABASE_ID__/${{ secrets.D1_DATABASE_ID }}/g" workers/scheduler/wrangler.toml
+          sed -i "s/000000000000000000/${{ secrets.DISCORD_CLIENT_ID }}/g" wrangler.toml workers/scheduler/wrangler.toml
+
+      - name: Apply D1 migrations (production)
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: d1 migrations apply discord-server-manager --remote --config wrangler.toml
+
+      - name: Deploy Pages (production)
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: pages deploy dist --project-name=discord-server-manager --branch=main
+
+      - name: Deploy Cron Worker (production)
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: deploy --config workers/scheduler/wrangler.toml

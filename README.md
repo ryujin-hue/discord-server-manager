@@ -6,7 +6,7 @@ channels. The repository holds two parts:
 | Part | Path | What it is |
 | --- | --- | --- |
 | Flutter app | `lib/`, `android/`, `test/` | The Android client with the server manager and the media sender. |
-| Backend | `backend/` | A small Fastify service with the REST API, the scheduler and the Discord gateway. |
+| Backend | `functions/`, `workers/`, `migrations/` | Cloudflare Pages Functions + D1 + Cron Triggers — no server to maintain. |
 
 The app signs the user in with Discord, lists the servers the user administers and
 offers the tools a server owner needs. The media sender uploads pictures and videos to
@@ -71,24 +71,23 @@ The app needs Android 8.0 (API 26) or newer.
 ```
 discord-server-manager/
 ├── android/                 the Android host of the app
-├── backend/                 the Fastify service with the REST API and the gateway
-│   ├── src/
-│   │   ├── auth/            the mobile callback of the OAuth2 flow
-│   │   ├── config/          the environment of the service
-│   │   ├── db/              the SQLite database and the repositories
-│   │   ├── discord/         the REST client of Discord and the permission helpers
-│   │   ├── gateway/         the gateway client and the event handlers
-│   │   ├── routes/          the REST routes of the app
-│   │   ├── scheduler/       the recurring jobs
-│   │   └── services/        the domain services
-│   └── test/                the tests of the service
+├── backend/                 the original Node/Fastify backend (archived, not deployed)
+├── functions/               Cloudflare Pages Functions (the API + OAuth2 callback)
+│   ├── [[path]].ts          the route dispatcher
+│   └── _lib/                services, repos, discord, auth, http, rateLimit
+├── workers/
+│   └── scheduler/           the Cron Worker (announcements + snapshots)
+├── migrations/              D1 SQL migrations
+├── docs/
+│   └── cloudflare-migration.md   migration guide and architecture
 ├── lib/
 │   ├── app/                 the router, the shell and the theme
 │   ├── core/                the configuration, the network, the storage and the widgets
 │   └── features/            auth, guilds, server, media_sender and settings
 ├── test/                    the tests of the app
-├── .github/workflows/       the release workflow
+├── .github/workflows/       deploy-cloudflare.yml + android-release.yml
 ├── env.example.json         the template of the local configuration of the app
+├── wrangler.toml            Cloudflare Pages + D1 configuration
 └── pubspec.yaml
 ```
 
@@ -105,10 +104,10 @@ discord-server-manager/
 
 1. Open **OAuth2 -> Client** in the sidebar.
 2. Press **Add Client** and choose **Public Client** (no client secret).
-3. Under **Redirects** add the exact URI of the backend:
+3. Under **Redirects** add the exact URI of the Cloudflare Pages deployment:
 
    ```
-   https://YOUR-BACKEND-HOST/auth/mobile-callback
+   https://YOUR-PAGES-DOMAIN/auth/mobile-callback
    ```
 
    The backend redirects the browser further to
@@ -165,113 +164,83 @@ New Webhook**. The URL of the webhook contains the secret. The app stores it in 
 secure storage of the device and sends it directly to Discord, it never passes through
 the backend.
 
-## Part two: backend
+## Part two: backend (Cloudflare)
 
-### 2.1 The environment
+The backend is now a **Cloudflare Pages Functions** project backed by **D1** and
+**Cron Triggers**. There is no server, no Docker container, no systemd unit and no
+tunnel to maintain. The original Node/Fastify backend is preserved in `backend/` as
+archived reference code but is no longer deployed.
 
-Copy the example file and fill in your values.
+The full migration guide is in [`docs/cloudflare-migration.md`](docs/cloudflare-migration.md).
 
-```bash
-cd backend
-cp .env.example .env
-```
+### 2.1 Prerequisites
 
-| Variable | Meaning |
-| --- | --- |
-| `DISCORD_CLIENT_ID` | The application id of the developer portal. |
-| `DISCORD_BOT_TOKEN` | The token of the bot. Only needed when the gateway runs. |
-| `PUBLIC_BASE_URL` | The public HTTPS address of the service, for example `https://api.example.com`. |
-| `GATEWAY_ENABLED` | `true` starts the Discord gateway in the same process. |
-| `PORT` | The port of the HTTP server, `8080` by default. |
-| `DB_PATH` | The file of the SQLite database, `./data/app.sqlite` by default. |
+- A Cloudflare account with Pages, Workers and D1 enabled.
+- The [Wrangler CLI](https://developers.cloudflare.com/workers/wrangler/) (`npx wrangler`).
+- The GitHub secrets listed in `.github/workflows/deploy-cloudflare.yml`.
 
 ### 2.2 Run it locally
 
 ```bash
-cd backend
 npm install
-npm run dev
+npm run build:site
+npx wrangler pages dev dist --local
 ```
 
-The scripts read the file `.env` when it exists, so the values of the table
-above are used without exporting them. The service listens on
-`http://localhost:8080`. Check that it answers with:
+Wrangler creates a local D1 database and runs the Functions on
+`http://localhost:8788`. Check that it answers:
 
 ```bash
-curl http://localhost:8080/health
+curl http://localhost:8788/health
 ```
 
 ### 2.3 Deploy it
 
-The backend must be reachable over public HTTPS, the OAuth2 redirect URI of the
-developer portal only accepts HTTPS addresses.
+The deployment is automated by the `deploy-cloudflare.yml` GitHub Actions workflow
+on every push to `main`. The steps it performs:
 
-The service needs a Node.js runtime, a file system for the SQLite database and
-a process that stays alive. Three ways to do that are prepared in the
-repository.
+1. `npm ci` + `npm run typecheck`
+2. `npm run build:site` (copies `site/` into `dist/`)
+3. Apply D1 migrations to the production database
+4. Deploy Pages (static site + Functions API) to production
+5. Deploy the Cron Worker
 
-#### A. Docker (the simplest way)
-
-```bash
-cd backend
-cp .env.example .env      # fill in the values
-docker compose up -d --build
-docker compose logs -f backend
-```
-
-The image is built from `backend/Dockerfile`, the database lives in the volume
-`backend-data` and only the port `8080` of the host is opened.
-
-#### B. A server with systemd and Caddy
+For a manual first-time setup:
 
 ```bash
-# on the server
-sudo useradd --system --home /opt/discord-server-manager discord-server-manager
-sudo mkdir -p /opt/discord-server-manager/data
-sudo rsync -a --exclude node_modules --exclude dist ../backend/ /opt/discord-server-manager/
-cd /opt/discord-server-manager && sudo npm ci && sudo npm run build
-sudo cp deploy/discord-server-manager.service /etc/systemd/system/
-sudo cp deploy/Caddyfile /etc/caddy/Caddyfile
-sudo systemctl daemon-reload && sudo systemctl enable --now discord-server-manager
+# 1. Create D1 databases
+npx wrangler d1 create discord-server-manager
+npx wrangler d1 create discord-server-manager-preview
+
+# 2. Apply migrations
+npx wrangler d1 migrations apply discord-server-manager --remote --config wrangler.toml
+
+# 3. Set Cloudflare secrets (never in git)
+npx wrangler pages secret put DISCORD_BOT_TOKEN   --project-name=discord-server-manager
+npx wrangler pages secret put DISCORD_PUBLIC_KEY  --project-name=discord-server-manager
+
+# 4. Deploy
+npm run deploy:pages
+npm run deploy:cron
 ```
 
-The secrets belong into `/etc/discord-server-manager.env`, the unit reads them
-from there:
+After the first deploy, set the OAuth2 redirect URI in the Discord Developer Portal
+to `https://YOUR-PAGES-DOMAIN/auth/mobile-callback`.
 
-```ini
-DISCORD_CLIENT_ID=000000000000000000
-DISCORD_BOT_TOKEN=replace-with-your-bot-token
-PUBLIC_BASE_URL=https://api.example.com
-GATEWAY_ENABLED=true
-PORT=8080
-DB_PATH=/opt/discord-server-manager/data/app.sqlite
-```
+#### Gateway limitations
 
-The address in the `Caddyfile` has to be the same as `PUBLIC_BASE_URL` and as
-the redirect URI of the Discord application. Caddy fetches the certificate of
-the address on its own.
+The Discord Gateway uses a persistent WebSocket and cannot run on Cloudflare
+Workers/Pages Functions. The following features are **unavailable** on the
+Cloudflare backend:
 
-#### C. A Cloudflare tunnel
+- Welcome/goodbye messages (member add/remove events)
+- Reaction-role live listener (reaction add events)
+- Invite tracking attribution (invite create/delete events)
+- Persistent bot presence (shows offline unless a separate always-on process is used)
 
-A tunnel publishes the backend over HTTPS without a public address on the
-server, which fits a machine that is already in Cloudflare.
-
-```bash
-cloudflared tunnel create discord-server-manager
-cloudflared tunnel route dns discord-server-manager api.example.com
-sudo cp deploy/cloudflared/config.yml /etc/cloudflared/config.yml
-# fill in the id of the tunnel and the path of the credentials file
-sudo systemctl restart cloudflared
-```
-
-The service itself only listens on the server, the tunnel terminates the TLS.
-
-#### Notes for every way
-
-- Keep the database file on a volume that is backed up.
-- One process runs the REST API, the scheduler and the gateway over one SQLite
-  database. Scaling it horizontally is not supported, because the scheduler and the
-  gateway would run twice.
+**Button-role interactions** work via the `/interactions` endpoint with Ed25519
+signature verification. All other REST API features work identically to the
+original backend.
 
 ### 2.4 The contract of the API
 
@@ -483,7 +452,7 @@ The app stays inside the limits of the Discord API.
 
 **The sign in ends immediately with `invalid_client`.**
 The redirect URI of the developer portal must match
-`https://YOUR-BACKEND-HOST/auth/mobile-callback` exactly, with the same scheme and
+`https://YOUR-PAGES-DOMAIN/auth/mobile-callback` exactly, with the same scheme and
 without a trailing slash. The client of the app must be a public client.
 
 **The sign in ends with `access_denied`.**
@@ -517,12 +486,16 @@ the first time a background upload starts. The service also stops when the user
 removes the app.
 
 **The backend answers with `gateway_disabled`.**
-`GATEWAY_ENABLED` is `false` or the bot token is missing. The features that need the
-gateway are then unavailable, the rest of the API keeps working.
+On the Cloudflare backend, live Gateway features (welcome/goodbye messages,
+reaction-role listener, invite tracking) are permanently unavailable — there is
+no persistent WebSocket. The REST API, button-role interactions, scheduled
+announcements and snapshots all keep working. See
+[docs/cloudflare-migration.md](docs/cloudflare-migration.md) for details.
 
-**`npm install` fails with a build error of `better-sqlite3`.**
-A compiler or the build tools of Node.js are missing. Install the build tools of your
-system or use a Node.js version with a prebuilt binary for your platform.
+**`npm install` fails.**
+Make sure you are running Node.js 22 or newer. The Cloudflare project no longer
+depends on `better-sqlite3` (D1 replaces SQLite), so native build tools are not
+required for the serverless backend.
 
 ## License
 

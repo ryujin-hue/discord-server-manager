@@ -359,9 +359,9 @@ repository, see `.gitignore`.
 
 ## GitHub secrets for the release workflow
 
-The workflow `.github/workflows/android-release.yml` runs on every push, on every pull
-request and on the tags `v*`. It builds the app, runs the tests of the app and of the
-backend and publishes a release when a tag is used.
+The workflow `.github/workflows/android-release.yml` runs on every push to `main`, on every
+pull request and on the tags `v*`. It builds the app, runs the tests of the app and of the
+backend and publishes a release with the package attached.
 
 Add these secrets in **Settings -> Secrets and variables -> Actions**:
 
@@ -372,9 +372,37 @@ Add these secrets in **Settings -> Secrets and variables -> Actions**:
 | `KEY_ALIAS` | The alias of the key inside the key store. |
 | `KEY_PASSWORD` | The password of the key. |
 
-Without these secrets the workflow still builds the app, but the package is signed
-with the debug key and no release is published. The workflow never writes a secret
-into the repository.
+Without these secrets the workflow still builds the app and still publishes the release,
+but the package is signed with the debug key and the release notes say so. The workflow
+never writes a secret into the repository.
+
+Add these variables in the same place, they are not secret:
+
+| Variable | Meaning |
+| --- | --- |
+| `DISCORD_CLIENT_ID` | The application id of the developer portal, it is written into the configuration of the build. |
+| `BACKEND_URL` | The public HTTPS address of the backend, it is written into the configuration of the build. |
+
+### The version of a release
+
+Every push to `main` raises the version by itself.
+
+1. `tool/release.mjs` reads the version of the last tag and raises the patch number.
+   The kind of the raise comes from `RELEASE_BUMP` (`patch`, `minor` or `major`).
+2. The new version is written into `pubspec.yaml` and into a new section of the
+   `CHANGELOG.md`, the build number is the number of the commits.
+3. The package is built with that version and published as a release with the tag
+   `v<version>`. The name of the file is `Discord-Server-Manager-<version>.apk`.
+4. The raised version is committed back to `main`. That commit carries the marker that
+   tells GitHub to not start a new run, so the version is raised exactly once.
+
+The app reads the latest release of the repository to show that an update is
+available, so every push also makes the update check of the installed app find the
+new package.
+
+To build a release with a key of your own, add the four secrets of the table above.
+A package that is signed with the debug key can be installed, but Android shows a
+warning and it can never replace a package that was signed with the release key.
 
 ## The Cloudflare Pages project
 
